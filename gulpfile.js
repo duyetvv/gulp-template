@@ -2,6 +2,7 @@ var $           = require('gulp-load-plugins')();
 var del         = require('del');
 var gulp        = require('gulp');
 var seqence     = require('run-sequence');
+var requireDir  = require('require-dir');
 var browserSync = require('browser-sync');
 
 var config = {
@@ -20,7 +21,8 @@ var config = {
   dest: {
     views: 'public',
     styles: 'public/styles',
-    js: 'public/js'
+    js: 'public/js',
+    assets: 'public'
   },
   watching: {
     js: ['app/js/**/*.js', 'app/js/*.js'],
@@ -28,10 +30,6 @@ var config = {
     views: ['app/views/*.pug', 'app/views/**/*.pug']
   }
 }
-
-gulp.task('setWatch', function() {
-  global.isWatching = true;
-});
 
 gulp.task('pug', function() {
   return gulp.src(config.origin.views)
@@ -65,9 +63,31 @@ gulp.task('jslib', function () {
     .pipe(browserSync.stream());
 });
 
+gulp.task('copy', function() {
+  return gulp.src(config.origin.assets)
+    .pipe($.imagemin([
+      $.imagemin.gifsicle({interlaced: true}),
+      $.imagemin.jpegtran({progressive: true}),
+      $.imagemin.optipng({optimizationLevel: 5}),
+      $.imagemin.svgo({
+        plugins: [
+            {removeViewBox: true},
+            {cleanupIDs: false}
+        ]
+      })
+    ]))
+    .pipe(gulp.dest(config.dest.assets));
+});
+
+gulp.task('setVariables', function() {
+  global.isMin = true;
+});
+
 gulp.task('clean', del.bind(null, ['public']));
 
-gulp.task('default', ['pug', 'sass', 'jslib', 'js'], function() {
+gulp.task('serve', ['pug', 'sass', 'jslib', 'js', 'copy']);
+
+gulp.task('default', ['serve'], function() {
   browserSync({
     server: {
       baseDir: 'public'
@@ -77,4 +97,8 @@ gulp.task('default', ['pug', 'sass', 'jslib', 'js'], function() {
   gulp.watch(config.watching.views, ['pug']);
   gulp.watch(config.watching.styles, ['sass']);
   gulp.watch(config.watching.js, ['js']);
+});
+
+gulp.task('build', function() {
+  seqence('setVariables', 'clean', 'serve');
 });
